@@ -5,6 +5,8 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
+	wp "github.com/why444216978/go-util/panic"
+
 	"github.com/why444216978/crp"
 )
 
@@ -74,7 +76,7 @@ func (c *lfu) Get(key string) (interface{}, error) {
 func (c *lfu) Put(key string, value interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = crp.NewPanicError(r)
+			err = wp.NewPanicError(r)
 		}
 	}()
 
