@@ -32,8 +32,9 @@ func New(key string, value interface{}) Data {
 }
 
 func TestLRU(t *testing.T) {
-	o := NewLRU(3, New)
-	err := o.Put("a", "a")
+	o, err := NewLRU(3, New)
+	assert.Nil(t, err)
+	err = o.Put("a", "a")
 	assert.Nil(t, err)
 	err = o.Put("b", "b")
 	assert.Nil(t, err)

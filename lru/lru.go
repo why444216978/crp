@@ -21,13 +21,19 @@ type lru struct {
 	newFunc func(string, interface{}) Data
 }
 
-func NewLRU(capacity int, f func(string, interface{}) Data) lru {
-	return lru{
+var _ crp.CacheReplacement = (*lru)(nil)
+
+func NewLRU(capacity int, f func(string, interface{}) Data) (crp.CacheReplacement, error) {
+	if f == nil {
+		return nil, errors.New("newFunc nill")
+	}
+
+	return &lru{
 		Cap:     capacity,
 		Keys:    map[string]*list.Element{},
 		List:    list.New(),
 		newFunc: f,
-	}
+	}, nil
 }
 
 func (c *lru) Get(key string) (interface{}, error) {
@@ -38,7 +44,13 @@ func (c *lru) Get(key string) (interface{}, error) {
 	return nil, crp.ErrNotFound
 }
 
-func (c *lru) Put(key string, value interface{}) error {
+func (c *lru) Put(key string, value interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = crp.NewPanicError(r)
+		}
+	}()
+
 	if el, ok := c.Keys[key]; ok {
 		data, err := c.assertValue(el)
 		if err != nil {
@@ -57,7 +69,7 @@ func (c *lru) Put(key string, value interface{}) error {
 		delete(c.Keys, e.Value.(Data).Key())
 	}
 
-	return nil
+	return
 }
 
 func (c *lru) Print() []interface{} {

@@ -16,7 +16,7 @@ type Data interface {
 	SetFrequency(f int)
 }
 
-type LFUCache struct {
+type lfu struct {
 	keys           map[string]*list.Element // save key map
 	frequencyLists map[int]*list.List       // save the same frequency list
 	capacity       int
@@ -24,11 +24,16 @@ type LFUCache struct {
 	newFunc        func(string, interface{}) Data
 }
 
-func NewLFU(capacity int, f func(string, interface{}) Data) (*LFUCache, error) {
+var _ crp.CacheReplacement = (*lfu)(nil)
+
+func NewLFU(capacity int, f func(string, interface{}) Data) (*lfu, error) {
 	if capacity == 0 {
 		return nil, crp.ErrCapacity
 	}
-	return &LFUCache{
+	if f == nil {
+		return nil, errors.New("newFunc nil")
+	}
+	return &lfu{
 		keys:           map[string]*list.Element{},
 		frequencyLists: map[int]*list.List{},
 		capacity:       capacity,
@@ -37,7 +42,7 @@ func NewLFU(capacity int, f func(string, interface{}) Data) (*LFUCache, error) {
 	}, nil
 }
 
-func (c *LFUCache) Get(key string) (interface{}, error) {
+func (c *lfu) Get(key string) (interface{}, error) {
 	el, ok := c.keys[key]
 	if !ok {
 		return nil, crp.ErrNotFound
@@ -66,7 +71,13 @@ func (c *LFUCache) Get(key string) (interface{}, error) {
 	return currentNode.Value(), nil
 }
 
-func (c *LFUCache) Put(key string, value interface{}) error {
+func (c *lfu) Put(key string, value interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = crp.NewPanicError(r)
+		}
+	}()
+
 	if c.capacity == 0 {
 		return crp.ErrCapacity
 	}
@@ -102,10 +113,10 @@ func (c *LFUCache) Put(key string, value interface{}) error {
 	currentNode := c.newFunc(key, value)
 	c.add(currentNode)
 
-	return nil
+	return
 }
 
-func (c *LFUCache) add(data Data) {
+func (c *lfu) add(data Data) {
 	f := data.Frequency()
 
 	newList, ok := c.frequencyLists[f]
@@ -121,7 +132,7 @@ func (c *LFUCache) add(data Data) {
 	c.keys[data.Key()] = newNode
 }
 
-func (c *LFUCache) assertValue(el *list.Element) (Data, error) {
+func (c *lfu) assertValue(el *list.Element) (Data, error) {
 	data, ok := el.Value.(Data)
 	if !ok {
 		return nil, errors.Errorf("convert to Data fail source type:%T", el.Value)
@@ -129,7 +140,7 @@ func (c *LFUCache) assertValue(el *list.Element) (Data, error) {
 	return data, nil
 }
 
-func (c *LFUCache) Print() []interface{} {
+func (c *lfu) Print() []interface{} {
 	arr := []interface{}{}
 
 	var keys []int
