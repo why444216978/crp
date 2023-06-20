@@ -3,6 +3,7 @@ package lfu
 import (
 	"container/list"
 	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 	wp "github.com/why444216978/go-util/panic"
@@ -19,6 +20,7 @@ type Data interface {
 }
 
 type lfu struct {
+	lock           sync.Mutex
 	keys           map[string]*list.Element // save key map
 	frequencyLists map[int]*list.List       // save the same frequency list
 	capacity       int
@@ -45,6 +47,9 @@ func NewLFU(capacity int, f func(string, interface{}) Data) (*lfu, error) {
 }
 
 func (c *lfu) Get(key string) (interface{}, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	el, ok := c.keys[key]
 	if !ok {
 		return nil, crp.ErrNotFound
@@ -83,6 +88,9 @@ func (c *lfu) Put(key string, value interface{}) (err error) {
 	if c.capacity == 0 {
 		return crp.ErrCapacity
 	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	// if exists, call Get function to incr visits number
 	if currentValue, ok := c.keys[key]; ok {

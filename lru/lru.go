@@ -2,6 +2,7 @@ package lru
 
 import (
 	"container/list"
+	"sync"
 
 	"github.com/pkg/errors"
 	wp "github.com/why444216978/go-util/panic"
@@ -16,6 +17,7 @@ type Data interface {
 }
 
 type lru struct {
+	lock    sync.Mutex
 	Cap     int
 	Keys    map[string]*list.Element
 	List    *list.List
@@ -38,6 +40,9 @@ func NewLRU(capacity int, f func(string, interface{}) Data) (crp.CacheReplacemen
 }
 
 func (c *lru) Get(key string) (interface{}, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if el, ok := c.Keys[key]; ok {
 		c.List.MoveToFront(el)
 		return c.assertValue(el)
@@ -51,6 +56,9 @@ func (c *lru) Put(key string, value interface{}) (err error) {
 			err = wp.NewPanicError(r)
 		}
 	}()
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	if el, ok := c.Keys[key]; ok {
 		data, err := c.assertValue(el)
